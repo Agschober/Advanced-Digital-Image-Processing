@@ -16,16 +16,16 @@ close all
 % image)
 sz = [200 200];
 
-% toy image 1
+% % toy image 1
 % im = newim(sz);
 % im(:,0:100) = 1;
 % im = gaussf(im,8);
-
-% toy image 2
-% im = -xx(sz)+yy(sz)>0;
-% im = gaussf(im,4);
-
-% toy image 3
+% 
+% % % toy image 2
+% % im = -xx(sz)+yy(sz)>0;
+% % im = gaussf(im,4);
+% 
+% % toy image 3
 % im = -xx(sz)+yy(sz)>0;
 % im(120:140,:) = 1;
 % im = gaussf(im,8);
@@ -43,18 +43,25 @@ dY = dy(im);
 
 % TODO 1
 % compute the cost C(r,c), do not use for loops here!
-C = [];
+C = 1 - sqrt(im2mat(dX)^2 + im2mat(dY)^2)/max(sqrt(im2mat(dX)^2 + im2mat(dY)^2), [], 'all');
 
 % display the cost
 dipshow(C,'lin')
 
-
-C = im2mat(C); %convert for speed in the loops
+%C = im2mat(C); %convert for speed in the loops
 A = zeros(sz);
 for i=1:size(A,2)
     for j=2:size(A,1)
-      %TODO 2-4
-end
+        if i == size(A,2)
+            A(j,i) = C(j,i) + min(A(j-1, i-1:i));
+        end
+        if i == 1
+            A(j,i) = C(j,i) + min(A(j-1, i:i+1));
+        end
+        if i ~= 1 && i ~=size(A,2) 
+            A(j,i) = C(j,i) + min(A(j-1, i-1:i+1));
+        end
+    end
 end
 
 % select the minimum value on the last row of A
@@ -122,6 +129,7 @@ figure; imshow(clust,[1,size(myColorMap,1)])
 colormap(gca,myColorMap/255)
 title('segmentation result')
 
+pause
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Problem #3
@@ -161,15 +169,16 @@ for i=1:(mI-mT+1)
         
         % mean subtracted region of interest (ROI)
         % TODO 9
-        roi = [];
+        roi = roi - mean(roi(:));
         
         % compute the correlation
         % TODO 10
-        corr = [];
+        corr = Tm.*roi;
+        corr = sum(corr(:));
         
         % normalize the correlation
         % TODO 11
-        score(i,j) = [];
+        score(i,j) = corr/sqrt(sum(Tm(:).^2)*sum(roi(:).^2));
         
     end 
 end
@@ -189,7 +198,7 @@ hold on
 rectangle('Position', [matchIDY, matchIDX, nT, mT], 'EdgeColor', [0 1 0]);
 h.Name='matched patch';
 h.NumberTitle='off';
-
+pause
 %%
 % 3-b Template matching (multiple instances, optional)
 % Detect instances of the nuclear pore complex (NPCs)
@@ -218,7 +227,7 @@ for i=1:(mI-mT+1)
     for j=1:(nI-nT+1)
         
         % select the region of interest (sliding window)
-        roi = [];
+        roi = in(i:i+mT-1, j:j+nT-1);
         
         % TODO 12
         %{
@@ -226,13 +235,14 @@ for i=1:(mI-mT+1)
         %}        
         
         % mean subtracted region of interest (ROI)
-        roi =[]; 
+        roi = roi - mean(roi(:));
         
         % compute the correlation
-        corr = [];
+        corr = Tm.*roi;
+        corr = sum(corr(:));
         
         % normalize the correlation
-        score(i,j) = [];
+        score(i,j) = corr/sqrt(sum(Tm(:).^2)*sum(roi(:).^2));
         
     end 
 end
@@ -241,14 +251,13 @@ end
 dipshow(mat2im(score),'lin');colormap('hot')
 title('heat map of the correlation')
 
-
+pause
 % TODO 13
-%{
-% extend the previsou code for detecting multiple instances at this point
-% Hint: you do not have a single max score but multiples!
-%}
+maxval = max(score(:));
+ids = find(score > 0.75*maxval);
+[matchIDX, matchIDY] = ind2sub(size(score), ids);
 
-peaks=0;
+peaks=size(ids, 1);
 
 % plot the original image
 dipshow(mat2im(in))

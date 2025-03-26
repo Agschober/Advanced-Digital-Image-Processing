@@ -119,7 +119,7 @@ pause
 components = 5;
 Uk = zeros(size(U));
 Uk(1:components,:) = U(1:components,:);
-reconstruction = PC*transpose(Uk) + mx;
+reconstruction = Uk*PC + mx;
 
 dipshow(reshape(reconstruction, M, N, channel))
 

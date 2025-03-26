@@ -11,7 +11,7 @@ xpos = [0.5 1.5 2.5 3.5];
 figure;
 bar(xpos,f,1)
 
-% the scaling function of the de Haar wavelet:
+% the scaling function of the Haar wavelet:
 % you just take the average between neighboring function values and repeat
 % the process until only the average value of the signal remains
 s1 = [2.5 2.5 -1.5 -1.5]; %2 values
@@ -42,4 +42,4 @@ figure;bar(xpos,a2,1);title('a2')
 % looking at a1 you see values of -1.5 and -1.5 for the wavelet
 % 
 
-
+haar_wavelet(f)

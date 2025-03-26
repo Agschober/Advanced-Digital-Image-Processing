@@ -13,13 +13,12 @@ close all
 % 1D wavelet
 
 % input 1D signal
-f = [1 4 -3 0]
+f = [1 4 -3 0];
 
 
 
 % apply 1D haar transform, complete code in haar_wavelet1D.m
 wf = haar_wavelet1D(f)
-
 % apply inverse 1D haar transform, complete code in inv_haar_wavelet1D.m
 iwf = inv_haar_wavelet1D(wf)
 %% denoising using haar wavelet
@@ -47,7 +46,9 @@ zw = haar_wavelet1D(z);
 
 % TODO 3
 % modify the wavelet coeffiecient (zw) for denoising
-zw1=zw;
+N = log2(size(zw,2));
+zw1= zeros(1,2^N);
+zw1(1:8) = zw(1:8); 
 
 % apply inverse wavelet transform
 zr = inv_haar_wavelet1D(zw1);
@@ -86,20 +87,24 @@ wavename = 'haar';
 
 % TODO 4
 % use dwt2() to implement full 2D wavelet decomposition
+[cA,cH, cV,cD] = dwt2(w_image, wavename);
+w_image = [cA,cH; cV,cD];
 for j=7:-1:0
-    
     % TODO4a - select the coarse scale (subimage)
-    
+    Coarse = cA; %tmp(1:2^j,1:2^j)
+    [cA,cH, cV,cD] = dwt2(Coarse, wavename);
     
     % apply dwt2 to coarse scale
-   
-    
     % TODO4b - build-up the wavelet component according to Figure 1 in labwork
     % cA->T_phi, cH->T^H_psi, cV->T^V_psi, cD->T^D_psi
     tmp = [cA,cH; cV,cD];
     
     % TODO4c - substitute wavelet component into coarse scale
-  
+    if j ~= 0
+        w_image(1:2^j, 1:2^j) = tmp;
+        else
+        w_image(1,1)  = cA;
+    end
 end
 
 % display the result
@@ -114,20 +119,23 @@ iw_image = w_image;
 
 % TODO 5
 % use idwt2() to implement full 2D wavelet reconstruction
+
 for j = 0:7
     
     % TODO5a - select the coarse scale (subimage)
- 
+    cA = iw_image(1:2^j,1:2^j);
     
     % TODO5b - set the coarse scale size
+    cH = iw_image( 1 : 2^j , 2^j+1 : 2^(j+1) );
+    cV = iw_image( 2^j+1 : 2^(j+1) , 1 : 2^j );
+    cD = iw_image( 2^j+1 : 2^(j+1) , 2^j+1 : 2^(j+1) );
 
-    
     % TODO5c - apply idwt2 to coarse scale
     % carefully choose cA and details matrices cH, cV, and cD
     tmp = idwt2(cA, cH, cV, cD, wavename);
     
     % TODO4d - substitute wavelet component into coarse scale
-    
+    iw_image(1:2^(j+1),1:2^(j+1)) = tmp;
 end
 
 % display the result
@@ -139,11 +147,15 @@ f.NumberTitle = 'off';
 
 % TODO 6
 % Analysis of wavelet coefficients
+[acA, acH, acV, aCD] = dwt2(image, wavename);
+anal_image = [acA, acH; acV, aCD];
+
+dipshow(anal_image)
 
 % create a copy of the wavelet decomposed image
 denoise_image = w_image;
 %TODO discard part of the image as you think is reasonable
-
+denoise_image( 2^7+1 : end, 2^7+1 : end) = zeros(2^7);
 
 for j = 0:7
     a = denoise_image(1:2^(j+1),1:2^(j+1));    
@@ -152,6 +164,7 @@ for j = 0:7
     denoise_image(1:2^(j+1),1:2^(j+1)) = tmp;
 end
 
+dipshow(image)
 dipshow(mat2im(denoise_image))
 f = gcf;
 f.Name = 'Denoised image';
