@@ -23,8 +23,51 @@ f.NumberTitle = 'off';
 in = double(im2mat(in));
 
 % bilateral filtering parameters
+
+%{
+ tonalSigma = 5;%TODO change
+spatialSigma = 5;%TODO
+
+% apply bilateral filter to the input image
+out = bilateral(in, tonalSigma, spatialSigma);
+dipshow(mat2im(out),'lin')
+f = gcf;
+f.Name = 'Filtered image';
+f.NumberTitle = 'off';
+
+mean(mean(out))
+
+% bilateral filtering parameters
 tonalSigma = 10;%TODO change
-spatialSigma = 1;%TODO
+spatialSigma = 5;%TODO
+
+% apply bilateral filter to the input image
+out = bilateral(in, tonalSigma, spatialSigma);
+dipshow(mat2im(out),'lin')
+f = gcf;
+f.Name = 'Filtered image';
+f.NumberTitle = 'off';
+
+mean(mean(out))
+
+% bilateral filtering parameters
+tonalSigma = 20;%TODO change
+spatialSigma = 5;%TODO
+
+% apply bilateral filter to the input image
+out = bilateral(in, tonalSigma, spatialSigma);
+dipshow(mat2im(out),'lin')
+f = gcf;
+f.Name = 'Filtered image';
+f.NumberTitle = 'off';
+
+mean(mean(out)) 
+%}
+
+
+% bilateral filtering parameters
+tonalSigma = 50;%TODO change
+spatialSigma = 5;%TODO
 
 % apply bilateral filter to the input image
 out = bilateral(in, tonalSigma, spatialSigma);
@@ -37,7 +80,7 @@ out_gauss = gaussf(in,spatialSigma)
 mean(out_gauss)
 mean(mean(out))
 
-
+pause
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Problem #2
@@ -71,16 +114,25 @@ IFd = IF.*H;
 Iblur = real(ift(IFd));
 
 % plot the blurred image
-f=dipshow(Iblur,'lin');
+dipshow(Iblur,'lin');
 f.Name = 'Blurred image';
 f.NumberTitle = 'off';
 
 %% TODO 2 - apply inverse filtering 
+G = ft(Iblur);
 
+%Hfix = H;
+%Hfix(find(H == 0)) = 1; %This is me just trying to fix it, clearly you cannot reconstruct the image properly since you have a whole bunch of zeros in the ft of the PSF.
+
+F_approx = G./H;
+
+recon = real(ift(F_approx));
+
+dipshow(recon);
 f.Name = 'Deblurred image';
 f.NumberTitle = 'off';
 
-
+pause
 %%
 % (b) Wiener filter
 
@@ -99,9 +151,13 @@ f.NumberTitle = 'off';
 
 % apply Wiener filter to corrupted image with proper K parameter
 % apply the inverse blurring kernel in frequency domain
+K = 0.001;
+G = ft(J)
+Jr = conj(H)./(abs(H).^2 + K).*G;
+Jr = real(ift(Jr));
 
 % display the recovered image
-dipshow(Jr,'lin')
+f = dipshow(Jr,'lin')
 f = gcf;
 f.Name = 'Wiener image';
 f.NumberTitle = 'off';
