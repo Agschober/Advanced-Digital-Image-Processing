@@ -25,7 +25,7 @@ I_X = filter2(G_X, I, 'same'); % vertical edges
 I_Y = filter2(G_Y, I, 'same'); % horizontal edges
 I_mag = sqrt(I_X.^2 + I_Y.^2); % gradient magnitude
 I_theta = atan2(I_Y,I_X);
-I_theta(find(isnan(I_theta))) = 0; % necessary????
+%I_theta(find(isnan(I_theta))) = 0; % necessary???? AS: no :)
 
 % grid 
 grid_x = patch_size/2:grid_spacing:wid-patch_size/2+1;
@@ -77,12 +77,14 @@ clear I_orientation
 
 % Outputs:
 [grid_x,grid_y] = meshgrid(grid_x, grid_y);
-[nrows, ncols, cols] = size(sift_arr);
 
-% normalize SIFT descriptors
-sift_arr = reshape(sift_arr, [nrows*ncols num_angles*num_bins*num_bins]);
-sift_arr = normalize_sift(sift_arr);
-sift_arr = reshape(sift_arr, [nrows ncols num_angles*num_bins*num_bins]);
+% AS: moved out for image fusion purpose
+%[nrows, ncols, cols] = size(sift_arr);
+%
+%% normalize SIFT descriptors
+%sift_arr = reshape(sift_arr, [nrows*ncols num_angles*num_bins*num_bins]);
+%sift_arr = normalize_sift(sift_arr);
+%sift_arr = reshape(sift_arr, [nrows ncols num_angles*num_bins*num_bins]);
 
 
 
