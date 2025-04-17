@@ -66,10 +66,12 @@ mean(mean(out))
 
 
 % bilateral filtering parameters
-tonalSigma = 50;%TODO change
+tonalSigma = 200;%TODO change
 spatialSigma = 5;%TODO
 
-% apply bilateral filter to the input image
+% apply bilateral filter t
+% 
+% o the input image
 out = bilateral(in, tonalSigma, spatialSigma);
 dipshow(mat2im(out),'lin')
 f = gcf;
@@ -115,22 +117,33 @@ Iblur = real(ift(IFd));
 
 % plot the blurred image
 dipshow(Iblur,'lin');
-f.Name = 'Blurred image';
-f.NumberTitle = 'off';
+%f.Name = 'Blurred image';
+%f.NumberTitle = 'off';
 
 %% TODO 2 - apply inverse filtering 
-G = ft(Iblur);
+G = ft(Iblur); 
 
-%Hfix = H;
-%Hfix(find(H == 0)) = 1; %This is me just trying to fix it, clearly you cannot reconstruct the image properly since you have a whole bunch of zeros in the ft of the PSF.
+%typical inverse convolution doesn't work since the sinc function has zeros
+%But since we everything about the convolution process we know that if we find the PSF of the inverse operation (an image blur in the opposite direction)
+%the image can be fully reconstructed.
 
-F_approx = G./H;
+F_approx = zeros(sz);
+for i = 1:255
+    for j = 1:255
+        if abs(H(j,i)) < 1E-6
+            F_approx(j,i) = 0;
+        else
+            F_approx(j,i) = IFd(j,i)/H(j,i);
+        end
+    end
+end
 
-recon = real(ift(F_approx));
+recon = abs(ift(transpose(F_approx)));
 
 dipshow(recon);
-f.Name = 'Deblurred image';
-f.NumberTitle = 'off';
+%f =gcf;
+%f.Name = 'Deblurred image';
+%f.NumberTitle = 'off';
 
 pause
 %%
@@ -152,9 +165,13 @@ f.NumberTitle = 'off';
 % apply Wiener filter to corrupted image with proper K parameter
 % apply the inverse blurring kernel in frequency domain
 K = 0.001;
-G = ft(J)
+G = ft(J);
 Jr = conj(H)./(abs(H).^2 + K).*G;
-Jr = real(ift(Jr));
+
+%G = ft(image) + ft(noise), the noise is a constant, the image has some structure to it
+% (ft(image) + ft(noise))H*/(|H|^2 + K) shows that it is a fine balance between suppressing noise and reconstructing the image
+
+Jr = abs(ift(Jr));
 
 % display the recovered image
 f = dipshow(Jr,'lin')
