@@ -1,12 +1,13 @@
-% function to demonstrate how to use SIFT flow to register images across scenes
-% For simplicity we use two satellite images from the Mars. These two images have different
-% local appearances even though they were taken at the same location. Our job is to find
-% the dense correspondence from one image to the other.
+% code taken from [C. Liu et al. 'SIFT Flow: Dense Correspondence across Scenes and its Applications' IEEE trans. Pattern Analysis and Machine Intelligence]
+% original code can be found here https://people.csail.mit.edu/celiu/ECCV2008/
+% modified to recreate results from [Y. Liu et al. 'Multi-focus image fusion with dense SIFT' Information Fusion]
+% for the course AP3132 Advanced Digital Image Processing at TU Delft in 2025 (assignment description can be found at https://qiweb.tudelft.nl/adip/projects/topic_07/)
+% written by A. Schober & S. Verstraaten
 
 % Step 1. Load and downsample the images
 
-im1=imread('tree-fg.jpg');
-im2=imread('tree-bg.jpg');
+im1=imread('flower-fg.jpg');
+im2=imread('flower-bg.jpg');
 
 im1=imresize(imfilter(im1,fspecial('gaussian',7,1.),'same','replicate'),0.5,'bicubic');
 im2=imresize(imfilter(im2,fspecial('gaussian',7,1.),'same','replicate'),0.5,'bicubic');
