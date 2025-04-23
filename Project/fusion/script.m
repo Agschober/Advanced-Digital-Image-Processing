@@ -6,12 +6,12 @@
 
 % Step 0. Load and downsample the images
 
-im1=imread('street-bg.jpg');
-im2=imread('street-fg.jpg');
+im1=imread('flower-fg.jpg');
+im2=imread('flower-bg.jpg');
 
 [nx, ny, ncol] = size(im1);
 
-% AS: for some reason the pictures from my phone weren't the same size, make comparison difficult, implemented a small fix :)
+% AS: for some reason the pictures from my phone weren't the same size, makes comparison difficult, implemented a small fix :)
 scale = 3;
 nx = round(nx/scale);
 ny = round(ny/scale);
@@ -25,8 +25,8 @@ im2=im2double(im2);
 gs1 = color2grayscale(im1);
 gs2 = color2grayscale(im2);
 
-figure; imshow(gs1);
-figure; imshow(gs2);
+figure; imshow(im1);
+figure; imshow(im2);
 
 % Step 1. Compute the dense SIFT image
 
@@ -62,7 +62,8 @@ Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
 figure;imshow(showColorSIFT(Sift1_norm));title('SIFT image 1');
 figure;imshow(showColorSIFT(Sift2_norm));title('SIFT image 2');
 
-% AS: SIFT flow works REALLY FUCKING WELL FOR IMAGE REGISTRATION IT SEEMS -> not part of the assignment but definitely worth mentioning
+% step 1 +  IMAGE REGISTRATION
+% AS: SIFT flow works REALLY WELL (as far as I know) FOR IMAGE REGISTRATION IT SEEMS -> not part of the assignment but definitely worth mentioning
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Step 3. SIFT flow matching
 
@@ -83,13 +84,60 @@ Im2=im2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 warpI2=warpImage(Im2,vx,vy);
 figure;imshow(Im1);title('Image 1');
 figure;imshow(warpI2);title('Warped image 2');
-
-% display flow
-clear flow;
-flow(:,:,1)=vx;
-flow(:,:,2)=vy;
-figure;imshow(flowToColor(flow));title('SIFT flow field');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-figure;imshow(color2grayscale(Im1));title('Image 1');
-figure;imshow(color2grayscale(warpI2));title('Warped image 2');
+%AS: register SIFT images
+Im2 = warpImage(im2, vx, vy);
+Sift2 = warpImage(Sift2, vx, vy);
+Sift2_norm = reshape(Sift2, [nrows*ncols num_angles*num_bins*num_bins]);
+Sift2_norm = normalize_sift(Sift2_norm);
+Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
+
+%Obtain activity maps
+A1 = sum(Sift1, 3);
+A2 = sum(Sift2, 3);
+
+%step 2: initial decision map
+M1 = zeros(size(A1));
+M2 = M1;
+
+for i = patchsize:nx - patchsize + 1
+    for j = patchsize:ny - patchsize + 1
+        s1 = sum(sum(A1(i - patchsize + 1: i, j - patchsize + 1: j)));
+        s2 = sum(sum(A2(i - patchsize + 1: i, j - patchsize + 1: j)));
+        
+        if s1 > s2
+            M1(i - patchsize + 1: i, j - patchsize + 1: j) = M1(i - patchsize + 1: i, j - patchsize + 1: j) + 1;
+        elseif s2 > s1
+            M2(i - patchsize + 1: i, j - patchsize + 1: j) = M2(i - patchsize + 1: i, j - patchsize + 1: j) + 1;
+        end
+    end
+end
+
+%rough decision maps
+D1 = M2 == 0;
+D2 = M1 == 0;
+
+D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
+figure;imshow(D_init)
+
+%add pre-processing step to D1 and D2
+%remove small regions and holes in large areas (closing, opening or some other morphological operation)
+D1 = closing(D1, round(nx/100));
+D2 = closing(D2, round(nx/100));
+
+D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
+D_init = im2mat(D_init);
+figure;imshow(D_init)
+
+%step 3: refine decision map
+cases = find(D_init == 0.5);
+
+for i = 1:size(cases)
+
+end
+
+
+%step 4: fuse images
+im_fin = Im1.*D_init + (1-D_init).*warpI2;
+figure; imshow(im_fin)
