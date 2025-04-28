@@ -11,8 +11,8 @@ im2=imread('flower-bg.jpg');
 
 [nx, ny, ncol] = size(im1);
 
-% AS: for some reason the pictures from my phone weren't the same size, makes comparison difficult, implemented a small fix :)
-scale = 3;
+% AS: for some reason the pictures from my phone weren't the same size, makes comparison difficult, implemented a small fix to fix the size:)
+scale = 2;
 nx = round(nx/scale);
 ny = round(ny/scale);
 
@@ -88,17 +88,23 @@ figure;imshow(warpI2);title('Warped image 2');
 
 %AS: register SIFT images
 Im2 = warpImage(im2, vx, vy);
+gs2 = warpImage(gs2, vx, vy);
 Sift2 = warpImage(Sift2, vx, vy);
 Sift2_norm = reshape(Sift2, [nrows*ncols num_angles*num_bins*num_bins]);
 Sift2_norm = normalize_sift(Sift2_norm);
 Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
 
+%The registerd image is just slightly smaller -> rescale 
+gs1 = gs1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
+
+[nx, ny] = size(gs1);
+
 %Obtain activity maps
-A1 = sum(Sift1, 3);
-A2 = sum(Sift2, 3);
+A1 = sum(Sift1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:,:), 3);
+A2 = sum(Sift2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:,:), 3);
 
 %step 2: initial decision map
-M1 = zeros(size(A1));
+M1 = zeros(size(gs1));
 M2 = M1;
 
 for i = patchsize:nx - patchsize + 1
@@ -121,23 +127,87 @@ D2 = M1 == 0;
 D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
 figure;imshow(D_init)
 
-%add pre-processing step to D1 and D2
+%add post-processing step to D1 and D2
 %remove small regions and holes in large areas (closing, opening or some other morphological operation)
-D1 = closing(D1, round(nx/100));
-D2 = closing(D2, round(nx/100));
+threshold = round(nx*ny/100);
+%D1 = closing(D1, round(nx/100));
+%D2 = closing(D2, round(nx/100));
 
 D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
-D_init = im2mat(D_init);
-figure;imshow(D_init)
+%D_init = im2mat(D_init);
+%figure;imshow(D_init)
 
-%step 3: refine decision map
+%step 3: refine decision map using spatial frequency on image patch
 cases = find(D_init == 0.5);
 
-for i = 1:size(cases)
+i_indices = 1:nx;
+j_indices = 1:ny;
+[i_indices, j_indices] = meshgrid(i_indices, j_indices);
+i_indices = i_indices(cases);
+j_indices = j_indices(cases);
 
+D_fin = D_init;
+
+tic
+for k = 1:size(cases)
+    i = i_indices(k);
+    j = j_indices(k);
+
+    if i - patchsize/2 < 0
+        i = patchsize/2;
+
+    elseif i + patchsize/2 > nx
+        i = nx - patchsize/2;
+
+    end
+
+    if j - patchsize/2 < 0
+        j = patchsize/2;
+
+    elseif j + patchsize/2 > ny
+        j = ny - patchsize/2;
+
+    end
+
+    SR1 = SR(gs1(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2));
+    SR2 = SR(gs2(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2));
+
+    if SR1 > SR2
+        D_fin(cases(k)) = 1;
+
+    elseif SR2 > SR1
+        D_fin(cases(k)) = 0;
+
+    else
+        D_fin(cases(k)) = 0.5;
+
+    end
 end
+toc
 
+figure; imshow(D_fin)
 
 %step 4: fuse images
-im_fin = Im1.*D_init + (1-D_init).*warpI2;
+im_fin = Im1.*D_fin + (1-D_fin).*warpI2;
 figure; imshow(im_fin)
+
+% Define functions used script
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function grayscale = color2grayscale(I)
+
+    %AS: taken from 'Detailed Fusion scheme' from assignment  (assumption is that channel numbers correspond to rgb)
+    grayscale = 0.299*I(:,:,1) + 0.587*I(:,:,2) + 0.114*I(:,:,3);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function spatial_frequency = SR(I)
+    
+    %takes a grayscale 2D image and calculated the spatial frequency in the entire image.
+    [N,M] = size(I);
+    
+    %definition of spatial frequency taken from assignment
+    CF =  1/(N*M) * sum(sum( (I(2:end,:) - I(1:N-1,:)).^2 ));  %don't take the square root since it is squared in the next step anyways
+    RF =  1/(N*M) * sum(sum( (I(:,2:end) - I(:,1:M-1)).^2 ));
+
+    spatial_frequency = sqrt(CF + RF);
+end
