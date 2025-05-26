@@ -5,14 +5,16 @@
 % written by A. Schober & S. Verstraaten
 
 % Step 0. Load and downsample the images
+clear
+close all
 
-im1=imread('flower-fg.jpg');
-im2=imread('flower-bg.jpg');
+im1=imread('../focus_stack_adip/gevel_1.tif');
+im2=imread('../focus_stack_adip/gevel_16.tif');
 
-[nx, ny, ncol] = size(im1);
+[nx, ny, ncol] = size(im1)
 
 % AS: for some reason the pictures from my phone weren't the same size, makes comparison difficult, implemented a small fix to fix the size:)
-scale = 2;
+scale = 10;
 nx = round(nx/scale);
 ny = round(ny/scale);
 
@@ -191,7 +193,61 @@ figure; imshow(D_fin)
 im_fin = Im1.*D_fin + (1-D_fin).*warpI2;
 figure; imshow(im_fin)
 
-% Define functions used script
+%%full focusstack alternative
+%%find all names of focus stack files in a folder
+%stack_folder = 'foldername';
+%stack_names = ls(stack_folder);
+%
+%%read out size of the first image, get number of images in stack, create original image stack array
+%im = imread(stack_folder + stack_names(1));
+%[nx,ny,ncol] = size(im);
+%
+%im_stack = zeros([nx,ny,ncol,stack_size]);
+%gs_im_stack = zeros([nx,ny,stack_size]);
+%
+%for i = 1:stack_size
+%   im_stack(:,:,:,i) = imread(stack_folder + stack_names(i)); %downsampling images for speedup might be necessary
+%   gs_im_stack() = color2grayscale(im_stack(:,:,:,i));
+%
+%%inspect stack
+%dipshow(im_stack)
+%dipshow(gs_im_stack)
+%
+%patchsize = 8;
+%stepsize = 1;
+% 
+%sift_stack = zeros([nx, ny, 128, stack_size]);
+%nsift_stack = zeros(size(sift_stack));
+%
+%patchsize = 8
+%
+%num_bins = 4
+%num_angles =8 
+%
+%for i = 1:stack_size
+%   sift_stack(:,:,:,i) = dense_sift(gs_im_stack, patchsize, stepsize);
+%   tmp = reshape(sift_stack(:,:,:,i), [nrows*ncols num_angles*num_bins*num_bins]);
+%   tmp = normalize_sift(tmp);
+%   nsift_stack(:,:,:,i) = reshape(tmp, [nx ny num_angles*num_bins*num_bins]);
+%
+%% activity maps
+%
+%% memory
+%
+%% initial decision map
+%
+%% post processing
+% 
+%% refine decision map
+%
+%% fuse images
+%
+%
+%
+
+
+
+% Define functions used in script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function grayscale = color2grayscale(I)
 
