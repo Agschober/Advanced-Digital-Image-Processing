@@ -1,4 +1,6 @@
 %A script to demonstrate the steps made to construct a SIFT image
+clear
+close all
 
 I = imread('trui.tif');
 patch_size = 8;
@@ -7,14 +9,14 @@ grid_spacing = 1;
 
 I = double(I);
 I = mean(I,3);
-I = I /max(I(:));
+I = I /max(I(:)); %image is normalized
 
 dipshow(I);
 % parameters
 num_angles = 8;
 num_bins = 4;
 num_samples = num_bins * num_bins;
-alpha = 9; %% parameter for attenuation of angles (must be odd)
+alpha = 5; %% parameter for attenuation of angles (must be odd)
 
 sigma_edge = 1;
 
@@ -69,7 +71,17 @@ for a = 1:num_angles
     I_orientation(:,:,a) = conv2(weight_x, weight_x', I_orientation(:,:,a), 'same');
 end
 
-dipshow(I_orientation);
+dipshow(log10(1e-5 + I_orientation));
+
+figure()
+tiledlayout(2,4,"TileSpacing","compact")
+for i = 1:num_angles
+    nexttile
+    imagesc(I_orientation(:,:,i))
+    xticks('manual')
+    yticks('manual')
+    colormap gray
+end
 
 % Sample SIFT bins at valid locations (without boundary artifacts)
 % find coordinates of sample points (bin centers)
@@ -84,6 +96,6 @@ for n = 1:num_bins*num_bins
     b = b+num_angles;
 end
 
-
+figure
 color_image = showColorSIFT(sift_arr);
 imagesc(color_image);
