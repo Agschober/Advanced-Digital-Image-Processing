@@ -61,8 +61,8 @@ Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % visualize the SIFT image
-figure;imshow(showColorSIFT(Sift1_norm));title('SIFT image 1');
-figure;imshow(showColorSIFT(Sift2_norm));title('SIFT image 2');
+%figure;imshow(showColorSIFT(Sift1_norm));title('SIFT image 1');
+%figure;imshow(showColorSIFT(Sift2_norm));title('SIFT image 2');
 
 % step 1 +  IMAGE REGISTRATION
 % AS: SIFT flow works REALLY WELL (as far as I know) FOR IMAGE REGISTRATION IT SEEMS -> not part of the assignment but definitely worth mentioning
@@ -70,6 +70,9 @@ figure;imshow(showColorSIFT(Sift2_norm));title('SIFT image 2');
 % Step 3. SIFT flow matching
 
 % prepare the parameters
+
+%{
+ 
 SIFTflowpara.alpha=2;
 SIFTflowpara.d=40;
 SIFTflowpara.gamma=0.005;
@@ -78,11 +81,19 @@ SIFTflowpara.wsize=5;
 SIFTflowpara.topwsize=20;
 SIFTflowpara.nIterations=60;
 
-tic;[vx,vy,energylist]=SIFTflowc2f(Sift1_norm,Sift2_norm,SIFTflowpara);toc
+tic;[vx,vy,energylist]=SIFTflowc2f(Sift1_norm,Sift2_norm,SIFTflowpara);toc 
+ 
+%}
+
 
 % Step 4.  Visualize the matching results
 Im1=im1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 Im2=im2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
+
+
+
+%{
+ 
 warpI2=warpImage(Im2,vx,vy);
 figure;imshow(Im1);title('Image 1');
 figure;imshow(warpI2);title('Warped image 2');
@@ -94,7 +105,13 @@ gs2 = warpImage(gs2, vx, vy);
 Sift2 = warpImage(Sift2, vx, vy);
 Sift2_norm = reshape(Sift2, [nrows*ncols num_angles*num_bins*num_bins]);
 Sift2_norm = normalize_sift(Sift2_norm);
-Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
+Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]); 
+
+ 
+%}
+
+
+
 
 %The registerd image is just slightly smaller -> rescale 
 gs1 = gs1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
@@ -131,27 +148,52 @@ figure;imshow(D_init)
 
 %add post-processing step to D1 and D2
 %remove small regions and holes in large areas (closing, opening or some other morphological operation)
-threshold = round(nx*ny/100);
-%D1 = closing(D1, round(nx/100));
-%D2 = closing(D2, round(nx/100));
+n_erosion = 1;
+dim_filt_x = ceil(nx/(10*n_erosion));
+dim_filt_y = ceil(ny/(10*n_erosion));
+filt_type = 'elliptic';
+
+tic
+for i = 1:n_erosion
+    D1 = dilation(D1, [dim_filt_x,dim_filt_y], filt_type);
+    D2 = dilation(D2, [dim_filt_x,dim_filt_y], filt_type);
+end
+for i = 1:n_erosion
+    D1 = erosion(D1, [dim_filt_x,dim_filt_y], filt_type);
+    D2 = erosion(D2, [dim_filt_x,dim_filt_y], filt_type);
+end
+for i = 1:n_erosion
+    D1 = erosion(D1, [dim_filt_x,dim_filt_y], filt_type);
+    D2 = erosion(D2, [dim_filt_x,dim_filt_y], filt_type);
+end
+for i = 1:n_erosion
+    D1 = dilation(D1, [dim_filt_x,dim_filt_y], filt_type);
+    D2 = dilation(D2, [dim_filt_x,dim_filt_y], filt_type);
+end
+toc
+
+D1 = im2mat(D1);
+D2 = im2mat(D2);
 
 D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
+dipshow(D_init)
 %D_init = im2mat(D_init);
 %figure;imshow(D_init)
 
 %step 3: refine decision map using spatial frequency on image patch
 cases = find(D_init == 0.5);
 
+
 i_indices = 1:nx;
 j_indices = 1:ny;
-[i_indices, j_indices] = meshgrid(i_indices, j_indices);
+[j_indices, i_indices] = meshgrid(j_indices,i_indices);
 i_indices = i_indices(cases);
 j_indices = j_indices(cases);
 
 D_fin = D_init;
 
 tic
-for k = 1:size(cases)
+for k = 1:size(cases,1)
     i = i_indices(k);
     j = j_indices(k);
 
@@ -174,7 +216,7 @@ for k = 1:size(cases)
     SR1 = SR(gs1(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2));
     SR2 = SR(gs2(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2));
 
-    if SR1 > SR2
+        if SR1 > SR2
         D_fin(cases(k)) = 1;
 
     elseif SR2 > SR1
@@ -190,7 +232,7 @@ toc
 figure; imshow(D_fin)
 
 %step 4: fuse images
-im_fin = Im1.*D_fin + (1-D_fin).*warpI2;
+im_fin = Im1.*D_fin + (1-D_fin).*Im2;
 figure; imshow(im_fin)
 
 %%full focusstack alternative
