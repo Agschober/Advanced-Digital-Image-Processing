@@ -18,7 +18,7 @@ im1 = imread(strcat(stack_path,filename));
 
 clear im1;
 
-scale = 50;
+scale = 10;
 nx = round(nx/scale);
 ny = round(ny/scale);
 
@@ -35,10 +35,10 @@ for i = 1:nstack
     %gs_stack(:,:,i) = color2grayscale(im_stack(:,:,:,i));
 end
 toc
-pause
+
 clear im;
 
-dipshow(gs_stack)
+%dipshow(gs_stack)
 
 % Step 1. Compute the dense SIFT image
 
@@ -51,19 +51,18 @@ gridspacing=1;
 num_angles = 8;
 num_bins = 4;
 
-sift_stack = zeros([nx - (patchsize/2 +  2*gridspacing) ,ny - (patchsize/2 +  2*gridspacing),128,nstack]);
-normalized_sift_stack = sift_stack;
+%sift_stack = zeros([nx - (patchsize/2 +  2*gridspacing) ,ny - (patchsize/2 +  2*gridspacing),128,nstack]);
+%normalized_sift_stack = sift_stack;
 
 for i = 1:nstack
-    [sift_stack(:,:,:,i), grid_x, grid_y] = dense_sift(gs_stack(:,:,i), patchsize, gridspacing);
-    [nrows, ncols, cols] = size(sift_stack(:,:,:,1));
-    sift_norm = reshape(sift_stack(:,:,:,i), [nrows*ncols num_angles*num_bins*num_bins]);
-    sift_norm= normalize_sift(sift_norm);
-    normalized_sift_stack(:,:,:,i) = reshape(sift_norm, [nrows ncols num_angles*num_bins*num_bins]);
+    [im_stack(i).sift, grid_x, grid_y] = dense_sift(im_stack(i).gs_image, patchsize, gridspacing);
+    [nrows, ncols, cols] = size(im_stack(i).sift);
+    sift_norm = reshape(im_stack(i).sift, [nrows*ncols num_angles*num_bins*num_bins]);
+    sift_norm = normalize_sift(sift_norm);
+    im_stack(i).normalized_sift = reshape(sift_norm, [nrows ncols num_angles*num_bins*num_bins]);
 end
 
 clear sift_norm;
-
 %{
  % step 1 +  IMAGE REGISTRATION
 % AS: SIFT flow works REALLY WELL (as far as I know) FOR IMAGE REGISTRATION IT SEEMS -> not part of the assignment but definitely worth mentioning
@@ -104,36 +103,43 @@ gs1 = gs1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 %}
 
 %Obtain activity maps
-A = zeros([nx - 2*(patchsize/2 +  2*gridspacing),ny - 2*(patchsize/2 +  2*gridspacing),nstack]);
+A = struct;
 
 for i = 1:nstack
-    sift = sift_stack(:,:,:,i);
-    A(:,:,i) = sum(sift(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:), 3);
+    sift = im_stack(i).sift;
+    A(i).amap = sum(sift(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:), 3);
 end
 
 clear sift;
 
-gs_stack = gs_stack(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:,:);
-[nx, ny] = size(gs_stack(:,:,1));
+for i =1:nstack
+    im_stack(i).gs_image = im_stack(i).gs_image(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:,:);
+end
+
+[nx, ny] = size(im_stack(1).gs_image);
 
 %step 2: initial decision map
-M = zeros(size(A));
-D = M;
+for i = 1:nstack
+    A(i).M = zeros([nx - 2*(patchsize/2 +  2*gridspacing),ny - 2*(patchsize/2 +  2*gridspacing)]);
+end
 
-for k = 1:nstack
-    for i = patchsize:nx - patchsize + 1
-        for j = patchsize:ny - patchsize + 1
-            s = sum(A(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1,:), [1,2]);
-            smax = squeeze(max(s));
-            
-            if size(smax) == 1
-                index = find(s == smax);
-                M(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1, index) = M(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1, index) + 1;
-            end
+
+s = zeros(nstack,1);
+for i = patchsize:nx - patchsize + 1
+    for j = patchsize:ny - patchsize + 1
+        for k = 1:nstack
+            s(k) = sum(A(k).amap(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1), [1,2]);
+        end
+
+        smax = squeeze(max(s));
+        
+        if size(smax) == 1
+            index = find(s == smax);
+            A(index).M(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1) = A(index).M(i - patchsize + 1: i + 1, j - patchsize + 1: j + 1) + 1;
         end
     end
 end
-
+pause
 %rough decision maps
 for i = 1:nstack
     D(:,:,i) = sum(M, 3) - M(:,:,i) == 0;
