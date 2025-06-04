@@ -21,7 +21,7 @@ im1 = imread(strcat(stack_path,filename));
 clear im1;
 
 %scaling as theyre really large
-scale = 10;
+scale = 5;
 nx = round(nx_orig/scale); 
 ny = round(ny_orig/scale);
 
@@ -188,8 +188,8 @@ mask = sum(D, 3) == 0;
 
 % Step 5: Morphological post-processing on D
 n_erosion = 1;
-dim_filt_x = ceil(nx / (10 * n_erosion));
-dim_filt_y = ceil(ny / (10 * n_erosion));
+dim_filt_x = 2; %ceil(nx / (10 * n_erosion));
+dim_filt_y = 2; %ceil(ny / (10 * n_erosion));
 filt_type = 'elliptic';
 
 tic
@@ -237,22 +237,11 @@ for k = 1:size(cases,1)
     SF_max = max(SF_stack);
     index = find(SF_stack == SF_max);
     D(i,j,index) = 1 / numel(index); % Normalize 
-
-
-%     SF_max = max(SF_stack);
-%     for m = 1:size(SF_max,1)
-%         index = find(SF_stack == SF_max(m));
-%         D(i,j,index) = 1/size(SF_max,1);
-%     end
-% 
-%     end
-% k/size(cases,1)
-% end
   
 end
 toc
 
-clear gs; clear D_tmp
+clear gs;
 %%%%%%%%%%%%%%%%%%%%foutinitus
 dipshow(D)
 %%
@@ -263,17 +252,19 @@ crop_y = floor((size(gs_stack,2) - size(D,2)) / 2);
 
 % Crop gs_stack to match D's size
 gs_cropped = gs_stack(crop_x+1:end-crop_x, crop_y+1:end-crop_y, :);
+color_stack_cropped = color_stack_for_display(crop_x+1:end-crop_x, crop_y+1:end-crop_y, :, :);
 
 % Now fuse the grayscale images using D
 im_fin = sum(gs_cropped .* D, 3);
 
+color_im_fin = zeros(size(im_fin, 1),size(im_fin, 2),3);
+for i = 1:3
+    color_im_fin(:,:,i) = sum(squeeze(color_stack_cropped(:,:,i,:)) .* D, 3);
+end
+
 % Display the fused image
-figure; imshow(im_fin, []);
-
-
-
-%im_fin = sum(gs_stack(patchsize+1:end - patchsize, patchsize+1:end- patchsize, :) .* D, 3);
-%figure; imshow(im_fin)
+figure; imshow(im_fin);
+figure; imshow(color_im_fin);
 
 
 % Define functions used in script
