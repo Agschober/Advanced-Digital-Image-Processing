@@ -27,7 +27,7 @@ ny = round(ny_orig/scale);
 
 im_stack = struct([]);
 color_stack_for_display = zeros(nx, ny, 3, nstack, 'like', im2double(imread(strcat(stack_path, docs(1).('name')))));
-gs_stack =  zeros(nx, ny, 3, nstack, 'like', im2double(imread(strcat(stack_path, docs(1).('name')))));
+gs_stack =  zeros(nx, ny, nstack, 'like', im2double(imread(strcat(stack_path, docs(1).('name')))));
 
 
 tic
@@ -166,53 +166,6 @@ end
 
 %dipshow(decision_stack);
 
-
-%% Rough decision maps and uncertainty mask + post-processing
-
-% Step 1: Extract all decision maps from struct A into a 3D matrix M
-M = zeros(size(A(1).M,1), size(A(1).M,2), nstack);
-
-for i = 1:nstack
-    M(:,:,i) = A(i).M;
-end
-
-% Step 2: Rough decision maps D
-D = false(size(M)); % initialize logical array
-for i = 1:nstack
-    D(:,:,i) = (sum(M, 3) - M(:,:,i)) == 0;
-end
-
-% Step 3: Display decision maps
-dipshow(D);
-%%
-% Step 4: Uncertainty mask
-mask = sum(D, 3) == 0;
-
-% Step 5: Morphological processing on D
-n_erosion = 1;
-dim_filt_x = ceil(nx / (10 * n_erosion));
-dim_filt_y = ceil(ny / (10 * n_erosion));
-filt_type = 'elliptic';
-
-tic
-for j = 1:nstack
-    D_tmp = D(:,:,j);
-    for i = 1:n_erosion
-        D_tmp = dilation(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = erosion(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = erosion(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = dilation(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    D(:,:,j) = D_tmp;
-end
-toc
-
 %% Rough decision maps and uncertainty mask + processing
 
 % Step 1: Extract all decision maps from struct A into a 3D matrix M
@@ -242,19 +195,7 @@ filt_type = 'elliptic';
 tic
 for j = 1:nstack
     D_tmp = D(:,:,j);
-    for i = 1:n_erosion
-        D_tmp = dilation(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = erosion(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = erosion(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    for i = 1:n_erosion
-        D_tmp = dilation(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
-    end
-    D(:,:,j) = D_tmp;
+    D(:,:,j) = medif(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
 end
 toc
 
