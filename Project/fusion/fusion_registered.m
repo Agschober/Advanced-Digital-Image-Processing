@@ -8,13 +8,13 @@
 clear
 close all
 
-im1=imread('../focus_stack_adip/gevel_1.tif');
-im2=imread('../focus_stack_adip/gevel_16.tif');
+im1=imread('../duo_images/flower/flower-fg.jpg');
+im2=imread('../duo_images/flower/flower-bg.jpg');
 
 [nx, ny, ncol] = size(im1)
 
 % AS: for some reason the pictures from my phone weren't the same size, makes comparison difficult, implemented a small fix to fix the size:)
-scale = 10;
+scale = 3;
 nx = round(nx/scale);
 ny = round(ny/scale);
 
@@ -45,7 +45,7 @@ Sift2=dense_sift(im2,patchsize,gridspacing);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 num_angles = 8;
 num_bins = 4;
-[nrows, ncols, cols] = size(Sift1);
+[nrows, ncols, ~] = size(Sift1);
 
 % normalize SIFT descriptors
 Sift1_norm = reshape(Sift1, [nrows*ncols num_angles*num_bins*num_bins]);
@@ -70,9 +70,6 @@ Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]);
 % Step 3. SIFT flow matching
 
 % prepare the parameters
-
-%{
- 
 SIFTflowpara.alpha=2;
 SIFTflowpara.d=40;
 SIFTflowpara.gamma=0.005;
@@ -82,17 +79,10 @@ SIFTflowpara.topwsize=20;
 SIFTflowpara.nIterations=60;
 
 tic;[vx,vy,energylist]=SIFTflowc2f(Sift1_norm,Sift2_norm,SIFTflowpara);toc 
- 
-%}
-
 
 % Step 4.  Visualize the matching results
 Im1=im1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 Im2=im2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
-
-
-
-%{
  
 warpI2=warpImage(Im2,vx,vy);
 figure;imshow(Im1);title('Image 1');
@@ -107,12 +97,6 @@ Sift2_norm = reshape(Sift2, [nrows*ncols num_angles*num_bins*num_bins]);
 Sift2_norm = normalize_sift(Sift2_norm);
 Sift2_norm = reshape(Sift2_norm, [nrows ncols num_angles*num_bins*num_bins]); 
 
- 
-%}
-
-
-
-
 %The registerd image is just slightly smaller -> rescale 
 gs1 = gs1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 
@@ -126,7 +110,7 @@ A2 = sum(Sift2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:,:),
 M1 = zeros(size(gs1));
 M2 = M1;
 
-for i = patchsize:nx - patchsize + 1
+ for i = patchsize:nx - patchsize + 1
     for j = patchsize:ny - patchsize + 1
         s1 = sum(sum(A1(i - patchsize + 1: i, j - patchsize + 1: j)));
         s2 = sum(sum(A2(i - patchsize + 1: i, j - patchsize + 1: j)));
@@ -137,7 +121,7 @@ for i = patchsize:nx - patchsize + 1
             M2(i - patchsize + 1: i, j - patchsize + 1: j) = M2(i - patchsize + 1: i, j - patchsize + 1: j) + 1;
         end
     end
-end
+end 
 
 %rough decision maps
 D1 = M2 == 0;
@@ -148,27 +132,15 @@ figure;imshow(D_init)
 
 %add post-processing step to D1 and D2
 %remove small regions and holes in large areas (closing, opening or some other morphological operation)
-n_erosion = 1;
-dim_filt_x = ceil(nx/(10*n_erosion));
-dim_filt_y = ceil(ny/(10*n_erosion));
-filt_type = 'elliptic';
+n_filt = 1;
+dim_filt_x = ceil(nx/10);
+dim_filt_y = ceil(ny/10);
+filt_type = 'rectangular';
 
 tic
-for i = 1:n_erosion
-    D1 = dilation(D1, [dim_filt_x,dim_filt_y], filt_type);
-    D2 = dilation(D2, [dim_filt_x,dim_filt_y], filt_type);
-end
-for i = 1:n_erosion
-    D1 = erosion(D1, [dim_filt_x,dim_filt_y], filt_type);
-    D2 = erosion(D2, [dim_filt_x,dim_filt_y], filt_type);
-end
-for i = 1:n_erosion
-    D1 = erosion(D1, [dim_filt_x,dim_filt_y], filt_type);
-    D2 = erosion(D2, [dim_filt_x,dim_filt_y], filt_type);
-end
-for i = 1:n_erosion
-    D1 = dilation(D1, [dim_filt_x,dim_filt_y], filt_type);
-    D2 = dilation(D2, [dim_filt_x,dim_filt_y], filt_type);
+for i = 1:n_filt
+    D1 = medif(D1, [dim_filt_x, dim_filt_y], filt_type);
+    D2 = medif(D1, [dim_filt_x, dim_filt_y], filt_type);
 end
 toc
 
@@ -177,20 +149,16 @@ D2 = im2mat(D2);
 
 D_init = D1 + (1 - ((1-D2).*D1 + D2))*0.5;
 dipshow(D_init)
-%D_init = im2mat(D_init);
-%figure;imshow(D_init)
 
 %step 3: refine decision map using spatial frequency on image patch
+D_fin = D_init;
 cases = find(D_init == 0.5);
-
 
 i_indices = 1:nx;
 j_indices = 1:ny;
 [j_indices, i_indices] = meshgrid(j_indices,i_indices);
 i_indices = i_indices(cases);
 j_indices = j_indices(cases);
-
-D_fin = D_init;
 
 tic
 for k = 1:size(cases,1)
@@ -227,67 +195,13 @@ for k = 1:size(cases,1)
 
     end
 end
-toc
+toc 
 
 figure; imshow(D_fin)
 
 %step 4: fuse images
 im_fin = Im1.*D_fin + (1-D_fin).*Im2;
 figure; imshow(im_fin)
-
-%%full focusstack alternative
-%%find all names of focus stack files in a folder
-%stack_folder = 'foldername';
-%stack_names = ls(stack_folder);
-%
-%%read out size of the first image, get number of images in stack, create original image stack array
-%im = imread(stack_folder + stack_names(1));
-%[nx,ny,ncol] = size(im);
-%
-%im_stack = zeros([nx,ny,ncol,stack_size]);
-%gs_im_stack = zeros([nx,ny,stack_size]);
-%
-%for i = 1:stack_size
-%   im_stack(:,:,:,i) = imread(stack_folder + stack_names(i)); %downsampling images for speedup might be necessary
-%   gs_im_stack() = color2grayscale(im_stack(:,:,:,i));
-%
-%%inspect stack
-%dipshow(im_stack)
-%dipshow(gs_im_stack)
-%
-%patchsize = 8;
-%stepsize = 1;
-% 
-%sift_stack = zeros([nx, ny, 128, stack_size]);
-%nsift_stack = zeros(size(sift_stack));
-%
-%patchsize = 8
-%
-%num_bins = 4
-%num_angles =8 
-%
-%for i = 1:stack_size
-%   sift_stack(:,:,:,i) = dense_sift(gs_im_stack, patchsize, stepsize);
-%   tmp = reshape(sift_stack(:,:,:,i), [nrows*ncols num_angles*num_bins*num_bins]);
-%   tmp = normalize_sift(tmp);
-%   nsift_stack(:,:,:,i) = reshape(tmp, [nx ny num_angles*num_bins*num_bins]);
-%
-%% activity maps
-%
-%% memory
-%
-%% initial decision map
-%
-%% post processing
-% 
-%% refine decision map
-%
-%% fuse images
-%
-%
-%
-
-
 
 % Define functions used in script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
