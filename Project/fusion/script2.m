@@ -29,7 +29,7 @@ im_stack = struct([]);
 color_stack_for_display = zeros(nx, ny, 3, nstack, 'like', im2double(imread(strcat(stack_path, docs(1).('name')))));
 gs_stack =  zeros(nx, ny, nstack, 'like', im2double(imread(strcat(stack_path, docs(1).('name')))));
 
-
+disp('reading image stack')
 tic
 for i = 1:nstack
     current_filename = docs(i).('name');
@@ -50,7 +50,7 @@ toc
 clear im current_filename;
 
 %display stack
-dipshow(color_stack_for_display);
+dipshow(joinchannels('RGB',color_stack_for_display(:,:,1,:), color_stack_for_display(:,:,2,:), color_stack_for_display(:,:,3,:)));
 %single slice
 %dipshow(im_stack(1).image);
 
@@ -68,7 +68,8 @@ num_bins = 4;
 
 %sift_stack = zeros([nx - (patchsize/2 +  2*gridspacing) ,ny - (patchsize/2 +  2*gridspacing),128,nstack]);
 %normalized_sift_stack = sift_stack;
-
+disp('creating sift images')
+tic
 for i = 1:nstack
     [im_stack(i).sift, grid_x, grid_y] = dense_sift(im_stack(i).gs_image, patchsize, gridspacing);
     [nrows, ncols, cols] = size(im_stack(i).sift);
@@ -76,7 +77,7 @@ for i = 1:nstack
     sift_norm = normalize_sift(sift_norm);
     im_stack(i).normalized_sift = reshape(sift_norm, [nrows ncols num_angles*num_bins*num_bins]);
 end
-
+toc
 clear sift_norm;
 %%
 %{
@@ -119,11 +120,13 @@ gs1 = gs1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 %}
 
 %Obtain activity maps
+disp('obtaining initial decision map')
+tic
 A = struct;
 
 for i = 1:nstack
     sift = im_stack(i).sift;
-    A(i).amap = sum(sift(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:), 3);
+    A(i).amap = sum(sift, 3);
 end
 
 clear sift;
@@ -136,24 +139,23 @@ end
 
 %% Step 2: Initial decision map
 decision_radius = patchsize;
-[nx_crop, ny_crop] = size(A(1).amap);  
+%[nx_crop, ny_crop] = size(A(1).amap); 
 
 for i = 1:nstack
-    A(i).M = zeros(nx_crop - 2 * decision_radius, ny_crop - 2 * decision_radius);
+    A(i).M = zeros(nx, ny);
 end
 
 s = zeros(nstack, 1);
-for i = decision_radius + 1 : nx_crop - decision_radius
-    for j = decision_radius + 1 : ny_crop - decision_radius
+for i = patchsize:nx %- patchsize + 1
+    for j = patchsize:ny %- patchsize + 1
         for k = 1:nstack
-            patch = A(k).amap(i - decision_radius : i + decision_radius, ...
-                              j - decision_radius : j + decision_radius);
+            patch = A(k).amap(i - patchsize + 1: i, j - patchsize + 1: j);
             s(k) = sum(patch, 'all');
         end
 
         [~, index] = max(s);
-        A(index).M(i - decision_radius, j - decision_radius) = ...
-            A(index).M(i - decision_radius, j - decision_radius) + 1;
+        A(index).M(i - patchsize + 1: i, j - patchsize + 1: j) = ...
+            A(index).M(i - patchsize + 1: i, j - patchsize + 1: j) + 1;
     end
 end
 
@@ -179,66 +181,64 @@ D = false(size(M)); % initialize logical array
 for i = 1:nstack
     D(:,:,i) = (sum(M, 3) - M(:,:,i)) == 0;
 end
-
+toc
 % Step 3: Display decision maps
 dipshow(D);
 
-% Step 4: Uncertainty mask
-mask = sum(D, 3) == 0;
-
 % Step 5: Morphological post-processing on D
-n_erosion = 1;
-dim_filt_x = 2; %ceil(nx / (10 * n_erosion));
-dim_filt_y = 2; %ceil(ny / (10 * n_erosion));
+n_filt = 2;
+dim_filt_x = ceil(nx / 10);
+dim_filt_y = ceil(ny / 10);
 filt_type = 'elliptic';
-
+disp('applying post processing step')
 tic
-for j = 1:nstack
-    D_tmp = D(:,:,j);
-    D(:,:,j) = medif(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
+for i = 1:n_filt
+    for j = 1:nstack
+        D_tmp = D(:,:,j);
+        D(:,:,j) = medif(D_tmp, [dim_filt_x, dim_filt_y], filt_type);
+    end
 end
 toc
-
+dipshow(D);
 clear D_tmp
 
 %Step 3: refine decision map using spatial frequency on image patch
-cases = find(mask == 1);
+% Step 4: Uncertainty mask
+disp('decision map refinement')
+tic
+mask = sum(D, 3) == 0;
+dipshow(mask)
+cases = find(mask);
 
-i_indices = 1:nx - patchsize/2 - 2*gridspacing;
-j_indices = 1:ny - patchsize/2 - 2*gridspacing;
+%pause
+i_indices = 1:nx;% - patchsize/2 - 2*gridspacing;
+j_indices = 1:ny;% - patchsize/2 - 2*gridspacing;
 [j_indices, i_indices] = meshgrid(j_indices,i_indices);
 i_indices = i_indices(cases);
 j_indices = j_indices(cases);
 
-tic
 for k = 1:size(cases,1)
     i = i_indices(k);
     j = j_indices(k);
 
     if i - patchsize/2 < 0
         i = patchsize/2;
-    elseif i + patchsize/2 > ny
-        i = nx - patchsize/2;
+    elseif i + patchsize/2 > nx
+        i = nx - patchsize/2 -1;
     end
 
     if j - patchsize/2 < 0
         j = patchsize/2;
-    elseif j + patchsize/2 > nx
-        j = ny - patchsize/2;
+    elseif j + patchsize/2 > ny
+        j = ny - patchsize/2 - 1;
     end
 
-    SF_stack = zeros(1,nstack);
-
-    for l = 1:nstack
-        gs = gs_stack(:,:,l);
-        SF_stack(l) = SF(gs(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2));
-    end
-
-    SF_max = max(SF_stack);
-    index = find(SF_stack == SF_max);
+    SF_stack = SF(gs_stack(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2,:));
+    [SF_max, index] = max(SF_stack);
     D(i,j,index) = 1 / numel(index); % Normalize 
   
 end
+
 toc
 
 clear gs;
@@ -264,7 +264,7 @@ end
 
 % Display the fused image
 figure; imshow(im_fin);
-figure; imshow(color_im_fin);
+dipshow(joinchannels('RGB', color_im_fin(:,:,1), color_im_fin(:,:,2), color_im_fin(:,:,3)))
 
 
 % Define functions used in script
@@ -277,9 +277,9 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function spatial_frequency = SF(I)
     % Takes a grayscale 2D image and calculates the spatial frequency
-    [N,M] = size(I);
-    CF =  1/(N*M) * sum(sum((I(2:end,:) - I(1:N-1,:)).^2));
-    RF =  1/(N*M) * sum(sum((I(:,2:end) - I(:,1:M-1)).^2));
+    [N,M,nstack] = size(I);
+    CF =  1/(N*M) * sum((I(2:end,:,:) - I(1:N-1,:,:)).^2, [1,2]);
+    RF =  1/(N*M) * sum((I(:,2:end,:) - I(:,1:M-1,:)).^2, [1,2]);
     spatial_frequency = sqrt(CF + RF);
 end
 
