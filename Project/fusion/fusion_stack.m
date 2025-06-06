@@ -169,6 +169,8 @@ for k = 1:size(cases,1)
 
     SF_stack = SF(gs_stack(i - patchsize/2 + 1 : i + patchsize/2, j - patchsize/2 + 1 : j + patchsize/2,:));
     [SF_max, index] = max(SF_stack);
+    i = i_indices(k);
+    j = j_indices(k);
     D(i,j,index) = 1 / numel(index);
   
 end
@@ -186,13 +188,22 @@ color_stack_for_display = color_stack_for_display(patchsize/2:end-patchsize/2+1,
 im_fin = sum(gs_stack .* D, 3);
 color_im_fin = zeros(size(im_fin, 1),size(im_fin, 2),3);
 for i = 1:3
-    color_im_fin(:,:,i) = sum(squeeze(color_stack_cropped(:,:,i,:)) .* D, 3);
+    color_im_fin(:,:,i) = sum(squeeze(color_stack_for_display(:,:,i,:)) .* D, 3);
 end
 
 % Display the fused image
 dipshow(im_fin)
-dipshow(joinchannels('RGB', color_im_fin(:,:,1), color_im_fin(:,:,2), color_im_fin(:,:,3)))
+im_fin_colored = joinchannels('RGB', color_im_fin(:,:,1), color_im_fin(:,:,2), color_im_fin(:,:,3));
+dipshow(im_fin_colored)
 
+filename = "../animations/decision_map.gif"; % Specify the output file name
+%[A,map] = rgb2ind(D(:,:,:,1), 256);
+imwrite(D(:,:,1),filename,"gif",LoopCount=Inf, DelayTime=0.3)
+for i = 2:16
+    %[A,map] = rgb2ind(D(:,:,i), 256);
+    imwrite(D(:,:,i),filename,"gif",WriteMode="append", DelayTime=0.3)
+end
+imwrite(D(:,:,i),filename,"gif",WriteMode="append", DelayTime=3)
 
 % Define functions used in script
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -210,3 +221,25 @@ function spatial_frequency = SF(I)
     spatial_frequency = sqrt(CF + RF);
 end
 
+figure
+tiledlayout(2,8,"TileSpacing","compact")
+for i = 1:16
+    nexttile
+    imshow(color_stack_for_display(:,:,:,i))
+    xticks('manual')
+    yticks('manual')
+end
+
+figure
+tiledlayout(1,2,"TileSpacing","compact")
+nexttile
+imshow(uint8(round(im2mat(im_fin_colored*256))))
+xticks('manual')
+yticks('manual')
+nexttile
+im_canon = imread('/B03A0750.JPG');
+im_canon = imfilter(im_canon, fspecial('gaussian', 7, 1.0), 'same', 'replicate');
+im_canon = imresize(im_canon, [nx, ny], 'bicubic');
+imshow(im_canon)
+xticks('manual')
+yticks('manual')

@@ -8,8 +8,8 @@
 clear
 close all
 
-im1=imread('../duo_images/flower/flower-fg.jpg');
-im2=imread('../duo_images/flower/flower-bg.jpg');
+im1=imread('../duo_images/chess/chess-fg.jpg');
+im2=imread('../duo_images/chess/chess-bg.jpg');
 
 [nx, ny, ncol] = size(im1)
 
@@ -26,9 +26,6 @@ im2=im2double(im2);
 
 gs1 = color2grayscale(im1);
 gs2 = color2grayscale(im2);
-
-figure; imshow(im1);
-figure; imshow(im2);
 
 % Step 1. Compute the dense SIFT image
 
@@ -85,8 +82,6 @@ Im1=im1(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
 Im2=im2(patchsize/2:end-patchsize/2+1,patchsize/2:end-patchsize/2+1,:);
  
 warpI2=warpImage(Im2,vx,vy);
-figure;imshow(Im1);title('Image 1');
-figure;imshow(warpI2);title('Warped image 2');
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %AS: register SIFT images
@@ -196,6 +191,26 @@ for k = 1:size(cases,1)
     end
 end
 toc 
+
+% original unregistered images
+figure; imshow(im1);
+figure; imshow(im2);
+
+% registered images
+figure;imshow(Im1);title('Image 1');
+figure;imshow(warpI2);title('Warped image 2');
+
+filename = "../animations/registered-chess.gif"; % Specify the output file name
+[A,map] = rgb2ind(Im1, 256);
+imwrite(A,map,filename,"gif",LoopCount=Inf, DelayTime=1)
+[A,map] = rgb2ind(warpI2, 256);
+imwrite(A,map,filename,"gif",WriteMode="append", DelayTime=1)
+
+filename = "../animations/original-chess.gif"; % Specify the output file name
+[A,map] = rgb2ind(im1, 256);
+imwrite(A,map,filename,"gif",LoopCount=Inf, DelayTime=1)
+[A,map] = rgb2ind(im2, 256);
+imwrite(A,map,filename,"gif",WriteMode="append", DelayTime=1)
 
 figure; imshow(D_fin)
 

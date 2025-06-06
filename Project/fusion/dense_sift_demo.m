@@ -2,7 +2,7 @@
 clear
 close all
 
-I = imread('trui.tif');
+I = imread('../standard_issue/erika.tif');
 patch_size = 8;
 grid_spacing = 1;
 
@@ -74,10 +74,23 @@ end
 dipshow(log10(1e-5 + I_orientation));
 
 figure()
-tiledlayout(2,4,"TileSpacing","compact")
-for i = 1:num_angles
+tiledlayout(2,5,"TileSpacing","compact")
+for i = 1:4
     nexttile
-    imagesc(I_orientation(:,:,i))
+    imshow(I_orientation(:,:,i))
+    xticks('manual')
+    yticks('manual')
+    colormap gray
+end
+nexttile
+imshow(I)
+xticks('manual')
+yticks('manual')
+colormap gray
+
+for i = 5:8
+    nexttile
+    imshow(I_orientation(:,:,i))
     xticks('manual')
     yticks('manual')
     colormap gray
@@ -96,6 +109,19 @@ for n = 1:num_bins*num_bins
     b = b+num_angles;
 end
 
-figure
 color_image = showColorSIFT(sift_arr);
-imagesc(color_image);
+nexttile
+imshow(color_image)
+xticks('manual')
+yticks('manual')
+
+figure
+plot(sample_x - 1/2, sample_y + 1/2, Marker = '+', LineStyle = 'None', MarkerSize = 12)
+hold on
+plot(-1/2, 1/2, Marker = '*', LineStyle = 'None', MarkerSize = 12, MarkerFaceColor = 'r', MarkerEdgeColor = 'r')
+%xticks('manual')
+%yticks('manual')
+grid on
+xlim([-4,4])
+ylim([-4,4])
+
